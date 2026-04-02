@@ -23,10 +23,10 @@ export interface Emitter<Events extends Record<EventType, unknown>> {
 
 	on<Key extends keyof Events>(type: Key, handler: Handler<Events[Key]>): Unsubscribe;
 	on(type: '*', handler: WildcardHandler<Events>): Unsubscribe;
-	
+
 	off<Key extends keyof Events>(type: Key, handler?: Handler<Events[Key]>): void;
 	off(type: '*', handler: WildcardHandler<Events>): void;
-	
+
 	emit<Key extends keyof Events>(type: Key, event: Events[Key]): void;
 	emit<Key extends keyof Events>(type: undefined extends Events[Key] ? Key : never): void;
 }
@@ -35,66 +35,71 @@ export default function zephyrEvents<Events extends Record<EventType, unknown>>(
 	all?: EventHandlerMap<Events>
 ): Emitter<Events> {
 	type GenericEventHandler = Handler<Events[keyof Events]> | WildcardHandler<Events>;
-	
+
 	all ??= new Map();
-	
-	const handlerSets = new Map<keyof Events | '*', Set<GenericEventHandler>>();
-	
-	const getHandlerSet = (type: keyof Events | '*'): Set<GenericEventHandler> => {
-		let handlers = handlerSets.get(type);
-		if (!handlers) {
-			handlers = new Set();
-			handlerSets.set(type, handlers);
-			all!.set(type, [] as any);
-		}
-		return handlers;
-	};
-	
-	const syncMap = (type: keyof Events | '*'): void => {
-		const handlers = handlerSets.get(type);
-		if (handlers) {
-			all!.set(type, [...handlers] as any);
-		}
-	};
 
 	return {
 		all,
 
 		on<Key extends keyof Events>(type: Key, handler: GenericEventHandler): Unsubscribe {
-			const handlers = getHandlerSet(type);
-			
-			handlers.add(handler);
-			syncMap(type);
-			
+			let handlers = all!.get(type) as GenericEventHandler[] | undefined;
+			if (!handlers) {
+				handlers = [];
+				all!.set(type, handlers as EventHandlerList<Events[keyof Events]>);
+			}
+			handlers.push(handler);
+
 			return (): void => {
-				handlers.delete(handler);
-				syncMap(type);
+				const current = all!.get(type) as GenericEventHandler[] | undefined;
+				if (current) {
+					const idx = current.indexOf(handler);
+					if (-1 < idx) {
+						current.splice(idx, 1);
+					}
+					if (0 === current.length) {
+						all!.delete(type);
+					}
+				}
 			};
 		},
 
 		off<Key extends keyof Events>(type: Key, handler?: GenericEventHandler): void {
-			const handlers = handlerSets.get(type);
+			const handlers = all!.get(type) as GenericEventHandler[] | undefined;
 			if (!handlers) return;
-			
-			handler ? handlers.delete(handler) : handlers.clear();
-			syncMap(type);
+
+			if (handler) {
+				const idx = handlers.indexOf(handler);
+				if (-1 < idx) {
+					handlers.splice(idx, 1);
+				}
+				if (0 === handlers.length) {
+					all!.delete(type);
+				}
+			} else {
+				all!.delete(type);
+			}
 		},
 
 		emit<Key extends keyof Events>(type: Key, evt?: Events[Key]): void {
-			const handlers = handlerSets.get(type);
-			if (handlers?.size) {
-				for (const handler of [...handlers] as Handler<Events[Key]>[]) {
-					handler(evt!);
+			const handlers = all!.get(type) as Handler<Events[Key]>[] | undefined;
+			if (handlers) {
+				const snapshot = handlers.slice();
+				const len = snapshot.length;
+				for (let i = 0; i < len; i++) {
+					snapshot[i](evt as Events[Key]);
 				}
 			}
-			
-			const wildcards = handlerSets.get('*');
-			if (wildcards?.size) {
-				for (const handler of [...wildcards] as WildcardHandler<Events>[]) {
-					handler(type, evt!);
+
+			if ('*' !== type) {
+				const wildcards = all!.get('*') as WildcardHandler<Events>[] | undefined;
+				if (wildcards) {
+					const snapshot = wildcards.slice();
+					const len = snapshot.length;
+					for (let i = 0; i < len; i++) {
+						snapshot[i](type, evt as Events[keyof Events]);
+					}
 				}
 			}
 		}
 	};
 }
-

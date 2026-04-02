@@ -1,186 +1,139 @@
-const zephyrEvents = require('./dist/zephyr-events.js').default;
+const zephyrEvents = require('./dist/zephyr-events.js');
 
-// Benchmark utility functions
 function formatNumber(num) {
-  if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-  if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-  if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-  return num.toString();
+	if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+	if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+	if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+	return num.toString();
 }
 
-function benchmark(name, fn, iterations = 100000) {
-  console.log(`\n🏃 ${name}`);
-  console.log(`   Running ${formatNumber(iterations)} iterations...`);
-  
-  // Warm up
-  for (let i = 0; i < 1000; i++) fn();
-  
-  const start = process.hrtime.bigint();
-  for (let i = 0; i < iterations; i++) {
-    fn();
-  }
-  const end = process.hrtime.bigint();
-  
-  const totalTime = Number(end - start) / 1e6; // Convert to milliseconds
-  const opsPerSecond = iterations / (totalTime / 1000);
-  const timePerOp = totalTime / iterations;
-  
-  console.log(`   ⏱️  Total time: ${totalTime.toFixed(2)}ms`);
-  console.log(`   🚀 Ops/second: ${formatNumber(opsPerSecond)}`);
-  console.log(`   ⚡ Time per op: ${timePerOp.toFixed(4)}ms`);
-  
-  return { totalTime, opsPerSecond, timePerOp };
+function benchmark(name, setup, fn, iterations = 100000) {
+	console.log(`\n  ${name}`);
+	console.log(`  Running ${formatNumber(iterations)} iterations...`);
+
+	setup();
+
+	// Warm up
+	for (let i = 0; i < 1000; i++) fn();
+
+	const start = process.hrtime.bigint();
+	for (let i = 0; i < iterations; i++) {
+		fn();
+	}
+	const end = process.hrtime.bigint();
+
+	const totalMs = Number(end - start) / 1e6;
+	const opsPerSecond = iterations / (totalMs / 1000);
+	const timePerOp = totalMs / iterations;
+
+	console.log(`  Total: ${totalMs.toFixed(2)}ms | ${formatNumber(opsPerSecond)} ops/sec | ${timePerOp.toFixed(4)}ms/op`);
+
+	return { totalMs, opsPerSecond, timePerOp };
 }
 
-console.log('🌪️ Zephyr Events - Comprehensive Performance Benchmark');
-console.log('=' .repeat(60));
+console.log('\nZephyr Events - Performance Benchmark');
+console.log('='.repeat(50));
 
-// Test data
-const testEvent = { id: 1, message: 'test', timestamp: Date.now() };
-const handlers = [];
-
-console.log('\n📊 BENCHMARK RESULTS');
+const results = {};
 
 // 1. Emitter Creation
-const createResult = benchmark('Emitter Creation', () => {
-  const emitter = zephyrEvents();
-}, 50000);
+results['Creation'] = benchmark('Emitter Creation', () => {}, () => {
+	zephyrEvents();
+}, 500000);
 
-// 2. Event Subscription (on)
-const emitter = zephyrEvents();
-const subscribeResult = benchmark('Event Subscription (on)', () => {
-  const handler = (data) => {};
-  emitter.on('test', handler);
-  handlers.push(handler);
-});
+// 2. Single Handler Emit
+let singleEmitter;
+results['Emit (1 handler)'] = benchmark('Emit (1 handler)', () => {
+	singleEmitter = zephyrEvents();
+	singleEmitter.on('test', () => {});
+}, () => {
+	singleEmitter.emit('test', { id: 1 });
+}, 500000);
 
-// 3. Event Emission (emit) - Single Handler
-emitter.off('test'); // Clear all handlers
-emitter.on('test', (data) => {});
-const emitSingleResult = benchmark('Event Emission (1 handler)', () => {
-  emitter.emit('test', testEvent);
-});
+// 3. 10 Handlers Emit
+let tenEmitter;
+results['Emit (10 handlers)'] = benchmark('Emit (10 handlers)', () => {
+	tenEmitter = zephyrEvents();
+	for (let i = 0; i < 10; i++) {
+		tenEmitter.on('test', () => {});
+	}
+}, () => {
+	tenEmitter.emit('test', { id: 1 });
+}, 100000);
 
-// 4. Event Emission - Multiple Handlers (10)
-emitter.off('test');
-for (let i = 0; i < 10; i++) {
-  emitter.on('test', (data) => {});
-}
-const emit10Result = benchmark('Event Emission (10 handlers)', () => {
-  emitter.emit('test', testEvent);
-}, 50000);
-
-// 5. Event Emission - Many Handlers (100)
-emitter.off('test');
-for (let i = 0; i < 100; i++) {
-  emitter.on('test', (data) => {});
-}
-const emit100Result = benchmark('Event Emission (100 handlers)', () => {
-  emitter.emit('test', testEvent);
+// 4. 100 Handlers Emit
+let hundredEmitter;
+results['Emit (100 handlers)'] = benchmark('Emit (100 handlers)', () => {
+	hundredEmitter = zephyrEvents();
+	for (let i = 0; i < 100; i++) {
+		hundredEmitter.on('test', () => {});
+	}
+}, () => {
+	hundredEmitter.emit('test', { id: 1 });
 }, 20000);
 
-// 6. Wildcard Listeners
-const wildcardEmitter = zephyrEvents();
-wildcardEmitter.on('*', (type, data) => {});
-const wildcardResult = benchmark('Wildcard Event Emission', () => {
-  wildcardEmitter.emit('wildcard-test', testEvent);
-});
+// 5. Wildcard Emit
+let wcEmitter;
+results['Wildcard Emit'] = benchmark('Wildcard Emit', () => {
+	wcEmitter = zephyrEvents();
+	wcEmitter.on('*', () => {});
+}, () => {
+	wcEmitter.emit('test', { id: 1 });
+}, 500000);
 
-// 7. Unsubscribe Performance
-const unsubEmitter = zephyrEvents();
-const unsubscribes = [];
-for (let i = 0; i < 1000; i++) {
-  unsubscribes.push(unsubEmitter.on('unsub', () => {}));
+// 6. Subscribe + Unsubscribe cycle (measures actual on/off, not array exhaustion)
+let subEmitter;
+results['On + Unsub cycle'] = benchmark('On + Unsub cycle', () => {
+	subEmitter = zephyrEvents();
+}, () => {
+	const unsub = subEmitter.on('test', () => {});
+	unsub();
+}, 500000);
+
+// 7. Off with specific handler (fresh each iteration)
+let offEmitter;
+let offHandler;
+results['Off (specific)'] = benchmark('Off (specific handler)', () => {
+	offEmitter = zephyrEvents();
+}, () => {
+	offHandler = () => {};
+	offEmitter.on('test', offHandler);
+	offEmitter.off('test', offHandler);
+}, 500000);
+
+// 8. Mixed realistic usage: on, emit, off
+let mixedEmitter;
+results['Mixed ops'] = benchmark('Mixed (on/emit/off)', () => {
+	mixedEmitter = zephyrEvents();
+}, () => {
+	const handler = () => {};
+	const unsub = mixedEmitter.on('mixed', handler);
+	mixedEmitter.emit('mixed', { v: 1 });
+	unsub();
+}, 200000);
+
+console.log('\n' + '='.repeat(50));
+console.log('Summary:');
+console.log('='.repeat(50));
+
+for (const [name, result] of Object.entries(results)) {
+	console.log(`  ${name.padEnd(22)}: ${formatNumber(result.opsPerSecond).padStart(8)} ops/sec`);
 }
-const unsubscribeResult = benchmark('Unsubscribe (returned function)', () => {
-  const unsub = unsubscribes.pop();
-  if (unsub) unsub();
-}, 5000);
 
-// 8. Off Method Performance
-const offEmitter = zephyrEvents();
-const offHandlers = [];
-for (let i = 0; i < 1000; i++) {
-  const handler = () => {};
-  offEmitter.on('off-test', handler);
-  offHandlers.push(handler);
-}
-const offResult = benchmark('Off Method (specific handler)', () => {
-  const handler = offHandlers.pop();
-  if (handler) offEmitter.off('off-test', handler);
-}, 5000);
+const peak = Math.max(...Object.values(results).map(r => r.opsPerSecond));
+console.log(`\n  Peak: ${formatNumber(peak)} ops/sec`);
+console.log('\nBenchmark complete.');
 
-// 9. Mixed Operations Simulation
-const mixedEmitter = zephyrEvents();
-let counter = 0;
-const mixedResult = benchmark('Mixed Operations (realistic usage)', () => {
-  const handler = (data) => { counter++; };
-  const unsub = mixedEmitter.on('mixed', handler);
-  mixedEmitter.emit('mixed', { counter });
-  unsub();
-}, 25000);
-
-// 10. Memory Stress Test
-const stressEmitter = zephyrEvents();
-const stressResult = benchmark('Memory Stress (100 events)', () => {
-  for (let i = 0; i < 100; i++) {
-    const eventName = `event${i % 10}`; // 10 different event types
-    const handler = (data) => {};
-    const unsub = stressEmitter.on(eventName, handler);
-    stressEmitter.emit(eventName, { i });
-    if (i % 2 === 0) unsub(); // Remove every other handler
-  }
-}, 1000);
-
-console.log('\n' + '='.repeat(60));
-console.log('📈 PERFORMANCE SUMMARY');
-console.log('='.repeat(60));
-
-const results = {
-  'Emitter Creation': createResult,
-  'Event Subscription': subscribeResult,
-  'Single Handler Emit': emitSingleResult,
-  '10 Handlers Emit': emit10Result,
-  '100 Handlers Emit': emit100Result,
-  'Wildcard Emit': wildcardResult,
-  'Unsubscribe': unsubscribeResult,
-  'Off Method': offResult,
-  'Mixed Operations': mixedResult,
-  'Memory Stress': stressResult
-};
-
-Object.entries(results).forEach(([name, result]) => {
-  console.log(`${name.padEnd(20)}: ${formatNumber(result.opsPerSecond).padStart(8)} ops/sec`);
-});
-
-console.log('\n🎯 KEY METRICS:');
-console.log(`   • Peak Performance: ${formatNumber(Math.max(...Object.values(results).map(r => r.opsPerSecond)))} ops/sec`);
-console.log(`   • Average Performance: ${formatNumber(Object.values(results).reduce((sum, r) => sum + r.opsPerSecond, 0) / Object.keys(results).length)} ops/sec`);
-console.log(`   • Fastest Operation: Event Subscription at ${formatNumber(subscribeResult.opsPerSecond)} ops/sec`);
-
-console.log('\n💡 PERFORMANCE INSIGHTS:');
-console.log('   • Dual-storage architecture (Set + Array) provides optimal O(1) operations');
-console.log('   • Race-condition safety comes with minimal performance overhead');
-console.log('   • ES2023 optimizations (optional chaining, nullish coalescing) boost performance');
-console.log('   • Memory usage remains stable even under stress conditions');
-
-console.log('\n🏆 Benchmark completed successfully!');
-
-// Export results for README
-const benchmarkData = {
-  timestamp: new Date().toISOString(),
-  nodeVersion: process.version,
-  platform: process.platform,
-  arch: process.arch,
-  results: Object.fromEntries(
-    Object.entries(results).map(([name, result]) => [
-      name, 
-      {
-        opsPerSecond: Math.round(result.opsPerSecond),
-        timePerOp: result.timePerOp
-      }
-    ])
-  )
-};
-
-require('fs').writeFileSync('./benchmark-results.json', JSON.stringify(benchmarkData, null, 2));
+const fs = require('fs');
+fs.writeFileSync('./benchmark-results.json', JSON.stringify({
+	timestamp: new Date().toISOString(),
+	nodeVersion: process.version,
+	platform: process.platform,
+	arch: process.arch,
+	results: Object.fromEntries(
+		Object.entries(results).map(([name, r]) => [
+			name,
+			{ opsPerSecond: Math.round(r.opsPerSecond), timePerOp: r.timePerOp }
+		])
+	)
+}, null, 2));

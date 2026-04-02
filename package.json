@@ -1,7 +1,7 @@
 {
   "name": "zephyr-events",
   "version": "1.1.2",
-  "description": "Ultra-fast ES2023 event emitter with 889B bundle size and race-condition safety",
+  "description": "Tiny typed event emitter with race-condition safety",
   "main": "dist/zephyr-events.js",
   "module": "dist/zephyr-events.mjs",
   "types": "dist/index.d.ts",
@@ -19,23 +19,29 @@
   ],
   "scripts": {
     "build": "tsc --build && node build.js",
-    "prepublishOnly": "npm run build"
+    "test": "node test/index.js",
+    "prepublishOnly": "npm run build && npm test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ebogdum/zephyr-events.git"
   },
   "keywords": [
-    "events",
+    "event-emitter",
     "eventemitter",
+    "events",
     "emitter",
     "pubsub",
+    "event-bus",
     "typescript",
-    "es2023",
-    "fast",
+    "typed-events",
+    "mitt-alternative",
+    "lightweight",
     "tiny",
-    "performance",
-    "race-condition-safe"
+    "subscribe",
+    "observer",
+    "race-condition-safe",
+    "wildcard"
   ],
   "homepage": "https://github.com/ebogdum/zephyr-events",
   "bugs": {
@@ -44,7 +50,7 @@
   "author": "ebogdum <https://github.com/ebogdum>",
   "license": "MIT",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

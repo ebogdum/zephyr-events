@@ -33,6 +33,7 @@ coverage/
 # Build artifacts
 *.tgz
 *.tar.gz
+benchmark-results.json
 
 # Claude local settings
 .claude/settings.local.json
