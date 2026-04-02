@@ -1,6 +1,6 @@
 {
   "name": "zephyr-events",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Tiny typed event emitter with race-condition safety",
   "main": "dist/zephyr-events.js",
   "module": "dist/zephyr-events.mjs",

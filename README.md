@@ -243,6 +243,22 @@ emitter.on('init', () => {
 | Zero dependencies | Yes | Yes | Yes | N/A |
 | Tree-shakeable ESM | Yes | Yes | Yes | No |
 
+## Performance Benchmarks
+
+Tested on Apple Silicon M-series (ARM64), Node.js v25.2.1. Run `node benchmark.js` to reproduce.
+
+| Operation | Ops/Second | Description |
+|-----------|------------|-------------|
+| **Emit (1 handler)** | **27.5M** | Emitting to a single event handler |
+| **Emit (10 handlers)** | **12.0M** | Emitting to 10 concurrent handlers |
+| **Emit (100 handlers)** | **1.9M** | Emitting to 100 concurrent handlers |
+| **Wildcard emit** | **27.5M** | Emitting with a wildcard listener |
+| **On + unsub cycle** | **9.4M** | Subscribe and immediately unsubscribe |
+| **On + off(handler)** | **9.3M** | Subscribe and remove with `.off()` |
+| **Mixed (on/emit/unsub)** | **7.0M** | Realistic usage: subscribe, emit, cleanup |
+
+All benchmarks use proper setup/run separation with warmup passes. No-op handlers are used to measure emitter overhead only — real-world throughput depends on handler complexity.
+
 ## Bundle Formats
 
 Zephyr Events ships three bundle formats for maximum compatibility:
