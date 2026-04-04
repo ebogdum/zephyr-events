@@ -37,6 +37,8 @@ export default function zephyrEvents<Events extends Record<EventType, unknown>>(
 	type GenericEventHandler = Handler<Events[keyof Events]> | WildcardHandler<Events>;
 
 	all ??= new Map();
+	let hasWildcards = false;
+	let emitting = 0;
 
 	return {
 		all,
@@ -49,6 +51,8 @@ export default function zephyrEvents<Events extends Record<EventType, unknown>>(
 			}
 			handlers.push(handler);
 
+			if ('*' === type) hasWildcards = true;
+
 			return (): void => {
 				const current = all!.get(type) as GenericEventHandler[] | undefined;
 				if (current) {
@@ -58,6 +62,7 @@ export default function zephyrEvents<Events extends Record<EventType, unknown>>(
 					}
 					if (0 === current.length) {
 						all!.delete(type);
+						if ('*' === type) hasWildcards = false;
 					}
 				}
 			};
@@ -74,29 +79,117 @@ export default function zephyrEvents<Events extends Record<EventType, unknown>>(
 				}
 				if (0 === handlers.length) {
 					all!.delete(type);
+					if ('*' === type) hasWildcards = false;
 				}
 			} else {
 				all!.delete(type);
+				if ('*' === type) hasWildcards = false;
 			}
 		},
 
 		emit<Key extends keyof Events>(type: Key, evt?: Events[Key]): void {
 			const handlers = all!.get(type) as Handler<Events[Key]>[] | undefined;
 			if (handlers) {
+				emitting++;
 				const snapshot = handlers.slice();
 				const len = snapshot.length;
 				for (let i = 0; i < len; i++) {
 					snapshot[i](evt as Events[Key]);
 				}
+				emitting--;
 			}
 
-			if ('*' !== type) {
+			if (hasWildcards && '*' !== type) {
 				const wildcards = all!.get('*') as WildcardHandler<Events>[] | undefined;
 				if (wildcards) {
+					emitting++;
 					const snapshot = wildcards.slice();
 					const len = snapshot.length;
 					for (let i = 0; i < len; i++) {
 						snapshot[i](type, evt as Events[keyof Events]);
+					}
+					emitting--;
+				}
+			}
+		}
+	};
+}
+
+/**
+ * Creates a fast, non-snapshot event emitter. Handlers that modify the
+ * listener list during emit may cause skipped or double-fired handlers.
+ * Use when maximum throughput matters and handlers do not mutate listeners.
+ */
+export function zephyrEventsFast<Events extends Record<EventType, unknown>>(
+	all?: EventHandlerMap<Events>
+): Emitter<Events> {
+	type GenericEventHandler = Handler<Events[keyof Events]> | WildcardHandler<Events>;
+
+	all ??= new Map();
+	let hasWildcards = false;
+
+	return {
+		all,
+
+		on<Key extends keyof Events>(type: Key, handler: GenericEventHandler): Unsubscribe {
+			let handlers = all!.get(type) as GenericEventHandler[] | undefined;
+			if (!handlers) {
+				handlers = [];
+				all!.set(type, handlers as EventHandlerList<Events[keyof Events]>);
+			}
+			handlers.push(handler);
+
+			if ('*' === type) hasWildcards = true;
+
+			return (): void => {
+				const current = all!.get(type) as GenericEventHandler[] | undefined;
+				if (current) {
+					const idx = current.indexOf(handler);
+					if (-1 < idx) {
+						current.splice(idx, 1);
+					}
+					if (0 === current.length) {
+						all!.delete(type);
+						if ('*' === type) hasWildcards = false;
+					}
+				}
+			};
+		},
+
+		off<Key extends keyof Events>(type: Key, handler?: GenericEventHandler): void {
+			const handlers = all!.get(type) as GenericEventHandler[] | undefined;
+			if (!handlers) return;
+
+			if (handler) {
+				const idx = handlers.indexOf(handler);
+				if (-1 < idx) {
+					handlers.splice(idx, 1);
+				}
+				if (0 === handlers.length) {
+					all!.delete(type);
+					if ('*' === type) hasWildcards = false;
+				}
+			} else {
+				all!.delete(type);
+				if ('*' === type) hasWildcards = false;
+			}
+		},
+
+		emit<Key extends keyof Events>(type: Key, evt?: Events[Key]): void {
+			const handlers = all!.get(type) as Handler<Events[Key]>[] | undefined;
+			if (handlers) {
+				const len = handlers.length;
+				for (let i = 0; i < len; i++) {
+					handlers[i](evt as Events[Key]);
+				}
+			}
+
+			if (hasWildcards && '*' !== type) {
+				const wildcards = all!.get('*') as WildcardHandler<Events>[] | undefined;
+				if (wildcards) {
+					const len = wildcards.length;
+					for (let i = 0; i < len; i++) {
+						wildcards[i](type, evt as Events[keyof Events]);
 					}
 				}
 			}

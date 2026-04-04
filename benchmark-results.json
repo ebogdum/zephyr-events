@@ -1,40 +1,40 @@
 {
-  "timestamp": "2026-04-02T16:33:00.660Z",
+  "timestamp": "2026-04-04T20:14:49.207Z",
   "nodeVersion": "v25.2.1",
   "platform": "darwin",
   "arch": "arm64",
   "results": {
     "Creation": {
-      "opsPerSecond": 37116654,
-      "timePerOp": 0.000026942084
+      "opsPerSecond": 50378890,
+      "timePerOp": 0.000019849584
     },
     "Emit (1 handler)": {
-      "opsPerSecond": 37398321,
-      "timePerOp": 0.000026739168
+      "opsPerSecond": 48399393,
+      "timePerOp": 0.000020661416
     },
     "Emit (10 handlers)": {
-      "opsPerSecond": 12308513,
-      "timePerOp": 0.00008124458000000001
+      "opsPerSecond": 13768811,
+      "timePerOp": 0.00007262791
     },
     "Emit (100 handlers)": {
-      "opsPerSecond": 1740448,
-      "timePerOp": 0.0005745645999999999
+      "opsPerSecond": 1887223,
+      "timePerOp": 0.00052987915
     },
     "Wildcard Emit": {
-      "opsPerSecond": 35741092,
-      "timePerOp": 0.000027978999999999998
+      "opsPerSecond": 35905998,
+      "timePerOp": 0.0000278505
     },
     "On + Unsub cycle": {
-      "opsPerSecond": 10735921,
-      "timePerOp": 0.00009314525000000001
+      "opsPerSecond": 10682819,
+      "timePerOp": 0.00009360824999999999
     },
     "Off (specific)": {
-      "opsPerSecond": 10317495,
-      "timePerOp": 0.00009692274999999999
+      "opsPerSecond": 10815030,
+      "timePerOp": 0.000092463916
     },
     "Mixed ops": {
-      "opsPerSecond": 7896477,
-      "timePerOp": 0.00012663875
+      "opsPerSecond": 8543738,
+      "timePerOp": 0.00011704478999999999
     }
   }
 }
