@@ -14,6 +14,7 @@ Most event emitter libraries break when handlers modify the listener list during
 
 - **Under 2KB** — 1.9KB ESM, zero dependencies, tree-shakeable
 - **Race-condition safe** — handlers can subscribe, unsubscribe, or clear during emit without side effects
+- **Fast mode** — `zephyrEventsFast` drops snapshot safety for up to 82% faster emit
 - **Full TypeScript support** — generic event maps, strict handler signatures, IDE autocompletion
 - **Universal builds** — ESM, CommonJS, and UMD for browsers, Node.js, and bundlers
 - **Wildcard listeners** — subscribe to all events with `*`
@@ -61,12 +62,25 @@ emitter.emit('user:login', { id: 1, name: 'Alice' });
 unsubscribe();
 ```
 
+### Fast Mode
+
+When handlers never modify the listener list during emit, use `zephyrEventsFast` for maximum throughput:
+
+```typescript
+import { zephyrEventsFast } from 'zephyr-events';
+
+const emitter = zephyrEventsFast<AppEvents>();
+// Same API — on(), off(), emit(), all
+```
+
 ### JavaScript Event Emitter
 
 ```javascript
 const zephyrEvents = require('zephyr-events');
+const { zephyrEventsFast } = require('zephyr-events');
 
-const emitter = zephyrEvents();
+const emitter = zephyrEvents();       // safe (snapshot)
+const fast = zephyrEventsFast();       // fast (no snapshot)
 
 emitter.on('message', (data) => {
   console.log('Received:', data);
@@ -79,7 +93,7 @@ emitter.emit('message', { text: 'Hello' });
 
 ### `zephyrEvents<Events>(all?)`
 
-Creates a new typed event emitter instance. Optionally accepts an existing handler map to share event state between emitters.
+Creates a new typed event emitter with snapshot-safe emission. Optionally accepts an existing handler map to share event state between emitters.
 
 ```typescript
 const emitter = zephyrEvents<{
@@ -91,6 +105,16 @@ const emitter = zephyrEvents<{
 const shared = new Map();
 const emitterA = zephyrEvents(shared);
 const emitterB = zephyrEvents(shared);
+```
+
+### `zephyrEventsFast<Events>(all?)`
+
+Creates a non-snapshot event emitter. Same API as `zephyrEvents`, but `emit()` iterates the live handler array instead of a copy. Up to 82% faster for single-handler emit. Use when handlers do not add/remove listeners during emission.
+
+```typescript
+import { zephyrEventsFast } from 'zephyr-events';
+
+const emitter = zephyrEventsFast<{ tick: number }>();
 ```
 
 ### `emitter.on(type, handler): Unsubscribe`
@@ -237,6 +261,7 @@ emitter.on('init', () => {
 | Bundle size | ~2KB | ~200B | ~7KB | Built-in |
 | TypeScript types | Native | Native | Bundled | `@types/node` |
 | Race-condition safe | Yes | No | No | No |
+| Fast (no-snapshot) mode | Yes | No | No | No |
 | Wildcard listeners | Yes | Yes | No | No |
 | Unsubscribe function | Yes | No | No | No |
 | Shared handler maps | Yes | Yes | No | No |
@@ -245,19 +270,22 @@ emitter.on('init', () => {
 
 ## Performance Benchmarks
 
-Tested on Apple Silicon M-series (ARM64), Node.js v25.2.1. Run `node benchmark.js` to reproduce.
+Tested on Apple Silicon M-series (ARM64), Node.js v25.2.1. Median of 3 runs in isolated V8 processes. Run `node benchmark-compare.js` to reproduce.
 
-| Operation | Ops/Second | Description |
-|-----------|------------|-------------|
-| **Emit (1 handler)** | **27.5M** | Emitting to a single event handler |
-| **Emit (10 handlers)** | **12.0M** | Emitting to 10 concurrent handlers |
-| **Emit (100 handlers)** | **1.9M** | Emitting to 100 concurrent handlers |
-| **Wildcard emit** | **27.5M** | Emitting with a wildcard listener |
-| **On + unsub cycle** | **9.4M** | Subscribe and immediately unsubscribe |
-| **On + off(handler)** | **9.3M** | Subscribe and remove with `.off()` |
-| **Mixed (on/emit/unsub)** | **7.0M** | Realistic usage: subscribe, emit, cleanup |
+### Safe vs Fast
 
-All benchmarks use proper setup/run separation with warmup passes. No-op handlers are used to measure emitter overhead only — real-world throughput depends on handler complexity.
+| Operation | Safe (snapshot) | Fast (no snapshot) | Delta |
+|-----------|----------------:|-------------------:|------:|
+| **Emit (1 handler)** | 49.4M ops/s | 89.9M ops/s | **+82%** |
+| **Emit (10 handlers)** | 14.0M ops/s | 16.9M ops/s | **+21%** |
+| **Emit (100 handlers)** | 1.9M ops/s | 2.1M ops/s | **+12%** |
+| **Wildcard emit** | 38.4M ops/s | 62.7M ops/s | **+63%** |
+| **Emit (no wildcards)** | 36.3M ops/s | 57.5M ops/s | **+59%** |
+| **On + unsub cycle** | 11.0M ops/s | 11.0M ops/s | 0% |
+| **Off (specific handler)** | 11.8M ops/s | 11.7M ops/s | 0% |
+| **Mixed (on/emit/unsub)** | 8.6M ops/s | 9.3M ops/s | **+8%** |
+
+All benchmarks use proper setup/run separation with warmup passes. No-op handlers measure emitter overhead only — real-world throughput depends on handler complexity.
 
 ## Bundle Formats
 
