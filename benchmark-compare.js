@@ -86,9 +86,14 @@ const RUNS = 3;
 const safeRuns = [];
 const fastRuns = [];
 
-for (let i = 0; i < RUNS; i++) {
-	safeRuns.push(runVariant('safe'));
-	fastRuns.push(runVariant('fast'));
+try {
+	for (let i = 0; i < RUNS; i++) {
+		safeRuns.push(runVariant('safe'));
+		fastRuns.push(runVariant('fast'));
+	}
+} finally {
+	// Always clean up the temp file, even if a benchmark run throws.
+	if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
 }
 
 function median(arr) {
@@ -125,5 +130,3 @@ for (const key of Object.keys(safe)) {
 
 console.log('-'.repeat(68));
 console.log('\n(median of 3 runs per variant, each in isolated V8 process)');
-
-fs.unlinkSync(tmpFile);

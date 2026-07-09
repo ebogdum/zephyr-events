@@ -17,7 +17,7 @@ This guide will help you get started with contributing to our ultra-fast event e
 
 ### Prerequisites
 
-- **Node.js** >= 16.0.0
+- **Node.js** >= 18.0.0
 - **npm** >= 7.0.0
 - **TypeScript** knowledge for core contributions
 
@@ -34,8 +34,8 @@ npm install
 # Build the project
 npm run build
 
-# Run tests (create your own test file)
-node test.js
+# Run the test suite
+npm test
 ```
 
 ## 🏗️ Project Structure
@@ -44,8 +44,12 @@ node test.js
 zephyr-events/
 ├── src/
 │   └── index.ts          # Main source code
+├── test/
+│   └── index.js          # Test suite (run with `npm test`)
 ├── dist/                 # Built files (generated)
 ├── build.js              # Custom build script
+├── benchmark.js          # Single-variant benchmark
+├── benchmark-compare.js  # Safe vs Fast comparison benchmark
 ├── package.json          # Project configuration
 ├── tsconfig.json         # TypeScript configuration
 ├── README.md             # Documentation
@@ -110,8 +114,11 @@ const emitter = zephyrEvents();
 For performance-related changes:
 
 ```bash
-# Run benchmark (if you have the benchmark script)
+# Single-variant benchmark
 node benchmark.js
+
+# Safe vs Fast comparison
+node benchmark-compare.js
 ```
 
 ### Test Coverage Areas

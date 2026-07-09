@@ -11,15 +11,66 @@ if (!fs.existsSync(inputFile)) {
 
 const compiled = fs.readFileSync(inputFile, 'utf8');
 
+// Extract a top-level `function <name>(...) { ... }` declaration by matching
+// braces, skipping any braces that appear inside string/template/comment tokens.
+// Brace-matching is robust against inner column-0 braces (formatters, template
+// literals) that a newline heuristic would truncate on.
+function extractFunction(source, name) {
+	const decl = new RegExp('function\\s+' + name + '\\b');
+	const startMatch = decl.exec(source);
+	if (!startMatch) return null;
+	const start = startMatch.index;
+
+	// Advance to the opening brace of the function body.
+	let i = source.indexOf('{', start);
+	if (-1 === i) return null;
+
+	let depth = 0;
+	for (; i < source.length; i++) {
+		const ch = source[i];
+
+		// Skip string / template literals wholesale.
+		if ("'" === ch || '"' === ch || '`' === ch) {
+			const quote = ch;
+			i++;
+			while (i < source.length && source[i] !== quote) {
+				if ('\\' === source[i]) i++; // skip escaped char
+				i++;
+			}
+			continue;
+		}
+
+		// Skip comments.
+		if ('/' === ch && '/' === source[i + 1]) {
+			i = source.indexOf('\n', i);
+			if (-1 === i) i = source.length;
+			continue;
+		}
+		if ('/' === ch && '*' === source[i + 1]) {
+			const close = source.indexOf('*/', i + 2);
+			i = -1 === close ? source.length : close + 1;
+			continue;
+		}
+
+		if ('{' === ch) {
+			depth++;
+		} else if ('}' === ch) {
+			depth--;
+			if (0 === depth) {
+				return source.slice(start, i + 1);
+			}
+		}
+	}
+	return null;
+}
+
 // Extract both function bodies from compiled output.
-const defaultMatch = compiled.match(/(function zephyrEvents\b[\s\S]*?\n\})/);
-const fastMatch = compiled.match(/(function zephyrEventsFast\b[\s\S]*?\n\})/);
-if (!defaultMatch || !fastMatch) {
+const functionBody = extractFunction(compiled, 'zephyrEvents');
+const fastBody = extractFunction(compiled, 'zephyrEventsFast');
+if (!functionBody || !fastBody) {
 	console.error('Could not extract zephyrEvents functions from compiled output');
 	process.exit(1);
 }
-const functionBody = defaultMatch[1].trim();
-const fastBody = fastMatch[1].trim();
 
 // ESM: export default + named export
 const esmCode = `export default ${functionBody}\nexport ${fastBody}\n`;

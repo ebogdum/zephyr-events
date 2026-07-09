@@ -1,6 +1,7 @@
 'use strict';
 
 const zephyrEvents = require('../dist/zephyr-events.js');
+const { zephyrEventsFast } = require('../dist/zephyr-events.js');
 
 let passed = 0;
 let failed = 0;
@@ -241,6 +242,71 @@ test('emit with undefined event data', () => {
 	e.on('test', (data) => { received = data; });
 	e.emit('test', undefined);
 	assertEqual(received, undefined, 'handler receives undefined');
+});
+
+// ─── regression: shared map + wildcard (F1) ───
+
+test('wildcard registered on one emitter fires when emitted via another sharing the map (F1)', () => {
+	const all = new Map();
+	const e1 = zephyrEvents(all);
+	const e2 = zephyrEvents(all);
+	let fired = 0;
+	e1.on('*', () => { fired++; });
+	e2.emit('foo', { x: 1 });
+	assertEqual(fired, 1, 'cross-emitter wildcard should fire via shared map');
+});
+
+test('typed handler registered on one emitter fires wildcard on another (F1, both dirs)', () => {
+	const all = new Map();
+	const e1 = zephyrEvents(all);
+	const e2 = zephyrEvents(all);
+	const seen = [];
+	e2.on('*', (type, data) => { seen.push([type, data]); });
+	e1.emit('bar', 7);
+	assertEqual(seen.length, 1, 'wildcard on e2 should see e1 emit');
+	assertEqual(seen[0][0], 'bar', 'wildcard receives correct type');
+	assertEqual(seen[0][1], 7, 'wildcard receives correct data');
+});
+
+test('fast variant: cross-emitter wildcard via shared map fires (F1)', () => {
+	const all = new Map();
+	const e1 = zephyrEventsFast(all);
+	const e2 = zephyrEventsFast(all);
+	let fired = 0;
+	e1.on('*', () => { fired++; });
+	e2.emit('foo', {});
+	assertEqual(fired, 1, 'fast cross-emitter wildcard should fire');
+});
+
+// ─── regression: emit('*') argument contract (F3) ───
+
+test('emit("*", data) calls wildcard handler with ("*", data), not (data, undefined) (F3)', () => {
+	const e = zephyrEvents();
+	let gotType = 'sentinel';
+	let gotData = 'sentinel';
+	e.on('*', (type, data) => { gotType = type; gotData = data; });
+	const payload = { payload: 99 };
+	e.emit('*', payload);
+	assertEqual(gotType, '*', 'wildcard type arg should be "*"');
+	assert(gotData === payload, 'wildcard data arg should be the payload');
+});
+
+test('emit("*") still fires wildcard exactly once (F3 keeps no-double-fire)', () => {
+	const e = zephyrEvents();
+	let count = 0;
+	e.on('*', () => { count++; });
+	e.emit('*', {});
+	assertEqual(count, 1, 'wildcard fires exactly once for emit("*")');
+});
+
+test('fast variant: emit("*", data) calls wildcard with ("*", data) (F3)', () => {
+	const e = zephyrEventsFast();
+	let gotType, gotData;
+	const payload = { p: 1 };
+	e.on('*', (type, data) => { gotType = type; gotData = data; });
+	e.emit('*', payload);
+	assertEqual(gotType, '*', 'fast wildcard type arg should be "*"');
+	assert(gotData === payload, 'fast wildcard data arg should be the payload');
 });
 
 // ─── results ───

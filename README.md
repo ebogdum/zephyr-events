@@ -276,14 +276,14 @@ Tested on Apple Silicon M-series (ARM64), Node.js v25.2.1. Median of 3 runs in i
 
 | Operation | Safe (snapshot) | Fast (no snapshot) | Delta |
 |-----------|----------------:|-------------------:|------:|
-| **Emit (1 handler)** | 49.4M ops/s | 89.9M ops/s | **+82%** |
-| **Emit (10 handlers)** | 14.0M ops/s | 16.9M ops/s | **+21%** |
-| **Emit (100 handlers)** | 1.9M ops/s | 2.1M ops/s | **+12%** |
-| **Wildcard emit** | 38.4M ops/s | 62.7M ops/s | **+63%** |
-| **Emit (no wildcards)** | 36.3M ops/s | 57.5M ops/s | **+59%** |
-| **On + unsub cycle** | 11.0M ops/s | 11.0M ops/s | 0% |
-| **Off (specific handler)** | 11.8M ops/s | 11.7M ops/s | 0% |
-| **Mixed (on/emit/unsub)** | 8.6M ops/s | 9.3M ops/s | **+8%** |
+| **Emit (1 handler)** | 41.6M ops/s | 75.1M ops/s | **+81%** |
+| **Emit (10 handlers)** | 13.6M ops/s | 16.2M ops/s | **+19%** |
+| **Emit (100 handlers)** | 1.9M ops/s | 2.1M ops/s | **+9%** |
+| **Wildcard emit** | 38.4M ops/s | 63.5M ops/s | **+65%** |
+| **Emit (no wildcards)** | 32.9M ops/s | 49.9M ops/s | **+52%** |
+| **On + unsub cycle** | 11.2M ops/s | 11.2M ops/s | 0% |
+| **Off (specific handler)** | 11.8M ops/s | 11.8M ops/s | 0% |
+| **Mixed (on/emit/unsub)** | 8.3M ops/s | 9.1M ops/s | **+9%** |
 
 All benchmarks use proper setup/run separation with warmup passes. No-op handlers measure emitter overhead only — real-world throughput depends on handler complexity.
 
